@@ -19,7 +19,7 @@ $data = {
 
 my $ca = $mw->Graph(
 	-type		=> 'Bars',
-	-shadowdeep	=> 4,
+	-shadowdepth	=> 4,
 
 	-xlabel		=> 'xlabel',
 	-xformat	=> '%s',

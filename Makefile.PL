@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile (
 	'NAME'		=> 'Tk::Graph',
 	'DISTNAME'	=> 'Tk-Graph',
-	'VERSION'	=> '0.01',
+	'VERSION'	=> '0.02',
 	'AUTHOR'	=> 'Frank Herrmann <xpix@netzwert.ag>',
 	'ABSTRACT'	=> 'Tk::Graph - Realtime Chartmaker Widget',
 	

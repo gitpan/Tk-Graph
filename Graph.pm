@@ -1,8 +1,8 @@
 #------------------------------------------------
 # automagically updated versioning variables -- CVS modifies these!
 #------------------------------------------------
-our $Revision           = '$Revision: 1.14 $';
-our $CheckinDate        = '$Date: 2002/09/05 19:24:08 $';
+our $Revision           = '$Revision: 1.18 $';
+our $CheckinDate        = '$Date: 2002/09/20 03:11:45 $';
 our $CheckinUser        = '$Author: xpix $';
 # we need to clean these up right here
 $Revision               =~ s/^\$\S+:\s*(.*?)\s*\$$/$1/sx;
@@ -14,41 +14,47 @@ $CheckinUser            =~ s/^\$\S+:\s*(.*?)\s*\$$/$1/sx;
 
 =head1 NAME
 
-Tk::Graph - A graphical Chartmaker at Canvas (Realtime). This is a real Canvaswidget, 
-also you can draw with the standart routuines in this canvas object. 
-In an example, you can draw a line with I<$chart>->I<line(x,y,...)>. Is importand for you when you will
-add a logo or write a text in your created Chart.
+Tk::Graph - A graphical Chartmaker at Canvas (Realtime). 
 
 =head1 SYNOPSIS
 
-use Tk;
-use Tk::Graph; 
+   use Tk;
+   use Tk::Graph; 
+   
+   $mw = MainWindow->new;
+   
+   my $data = {
+    	Sleep   => 51, 
+   	Work    => 135, 
+   	Access  => 124, 
+   	mySQL   => 5
+   };
+   
+   my $ca = $mw->Graph(
+   		-type  => 'BARS',
+   	)->pack(
+   		-expand => 1,
+   		-fill => 'both',
+   	);
+   
+   $ca->configure(-variable => $data);     # bind to data
+   
+   # or ...
+   
+   $ca->set($data);        # set data 
+   
+   MainLoop;
 
-my $mw = MainWindow->new;
 
-my $data = {
-sleep   => 51, 
-Work    => 135, 
-Access  => 124, 
-MySQL   => 5
-};
+=head1 DESCRIPTION
 
-my $ca = $mw->Graph(
-   -type  => 'BARS',
-)->pack(
-   -expand => 1,
-   -fill => 'both',
-);
-
-$ca->configure(-variable => $data);     # bind to data
-
-# or ...
-
-$ca->set($data);        # set data
-
-MainLoop;
+A graphical Chartmaker at Canvas (Realtime). This is a real Canvas widget, 
+so you can draw with the standard routines in the Canvas object. 
+For example, you can draw a line with I<$chart>->I<line(x,y,...)>. This is useful for you when you will
+add a logo or write some text in your created Chart.
 
 =cut
+
 
 # -------------------------------------------------------
 #
@@ -56,15 +62,12 @@ MainLoop;
 #
 # A graphical Chartmaker at Canvas (Realtime)
 # -------------------------------------------------------
-package Tk::Netzwert::Graph;
+package Tk::Graph;
 
-use English;
 use Carp;
 use base qw/Tk::Derived Tk::Canvas/;
 use Tk::Trace;
 use Tk::Balloon;
-# eval "use Tk::CanvasBalloon";
-my $eerror = 1 if($EVAL_ERROR);
 use strict;
 
 Construct Tk::Widget 'Graph';
@@ -86,7 +89,7 @@ $specs{-debug} 		= [qw/PASSIVE debug        Debug/,             undef];
 
 =head2 -debug [I<0>|1]
 
-This is the Switch for debug output at the normal console (STDOUT)
+This is the switch for debug output at the normal console (STDOUT)
 
 =cut
 
@@ -95,14 +98,14 @@ $specs{-type}  		= [qw/PASSIVE type         Type/,		undef];
 
 =head2 -type (I<Automatic>, Line, Bars, HBars, Circle)
 
-This if the type to display the data.
+This is the type of Graph to display the data.
 
-I<Automatic> - analyze the datahash and choice a Chart:
+I<Automatic> - analyze the datahash and choose a Chart:
 
-Hash with values -> CircleChart 
-Hash with keys with hashes or values (not all) -> Barchart pro Key 
-Hash with keys with arrays -> Linechart pro Key 
-Array -> Linechart 
+ Hash with values -> PieChart 
+ Hash with keys with hashes or values (not all) -> Barchart per Key 
+ Hash with keys with arrays -> Linechart per Key 
+ Array -> Linechart 
 
 I<Line> - Linechart,
 
@@ -110,7 +113,7 @@ I<Bars> - Barchart with vertical Bars,
 
 I<HBars> - Barchart with horizontal bars,
 
-I<Circle> - Circlechart
+I<Circle> - PieChart
 
 =cut
 
@@ -119,7 +122,7 @@ $specs{-foreground} 	= [qw/PASSIVE foreground   Foreground/,	'black'];
 
 =head2 -foreground (I<black>)
 
-Color from the Axis, Legend and Labels.
+Color for the Axis, Legend and Labels.
 
 =cut
 
@@ -129,7 +132,7 @@ $specs{-title}     	= [qw/PASSIVE title        Title/,             ' '];
 
 =head2 -title -titlecolor (I<brown>)
 
-Message top at the Widget
+Message at the top of the Widget.
 
 =cut
 
@@ -138,7 +141,8 @@ $specs{-headroom}     	= [qw/PASSIVE headroom     HeadRoom/,          20];
 
 =head2 -headroom  (I<20>)
 
-The Headroom in percent. 
+The headroom in percent. This is a clean area at the top of the widget. 
+When a value is in this area, the graph is redrawn to preserve this headroom.  
 
 =cut
 
@@ -147,10 +151,10 @@ $specs{-max}     	= [qw/PASSIVE max          Max/,               undef];
 
 =head2 -max
 
-Maximum Value at the axis,
-this make the axis not dynamicaly redraw to the
-next maximums value from the highest value in the data. 
-If only with function in Lines and Bars!
+Maximum Value for the axis. If this set,  
+the axis is not dynamically redrawn to the
+next maximum value from the data. 
+Only used in Lines and Bars!
 
 =cut
 
@@ -160,7 +164,7 @@ $specs{-sortreverse}    = [qw/PASSIVE sortreverse  SortReverse/,      	undef];
 
 =head2 -sortnames ('I<alpha>' | 'num') -sortreverse (0, 1)
 
-sort the keys from the datahash.
+sort the keys from the data hash.
 
 =cut
 
@@ -169,9 +173,8 @@ $specs{-config}    	= [qw/PASSIVE config       Config/,            undef];
 
 =head2 -config (\%cfghash)
 
-A confighash with optional added parameters for more flexibility. The first is the name 
-of the key from youre datahash, following from
-a confighash with parameters.
+A config hash with optional added parameters for more flexibility. The first is the name 
+of the key from your data hash, followed by a config hash with parameters.
 example:
 
         -config         => {
@@ -188,11 +191,11 @@ example:
 
 I<-title>
 
-Here you can write a other Name to display
+Here you can write another Name to display.
 
 I<-color>
 
-key only display in this color
+Key name displayed in this color.
 
 =cut
 
@@ -201,8 +204,8 @@ $specs{-fill}     	= [qw/PASSIVE fill         Fill/,              'both'];
 
 =head2 -fill (I<'both'>)
 
-The same we in perl/tk pack, the redraw only new in 
-I<x>,I<y> direction or I<both>
+The same as in perl/tk pack. Redraw only in 
+I<x>,I<y> or I<both> direction(s).
 
 =cut
 
@@ -212,7 +215,7 @@ $specs{-xlabel}     	= [qw/PASSIVE xlabel	    XLabel/,		undef];
 
 =head2 -xlabel -ylabel (I<text>)
 
-This display a Description for x and y axis
+This displays a description for x and y axis.
 
 =cut
 
@@ -222,7 +225,7 @@ $specs{-xtick}     	= [qw/PASSIVE xtick	    XTick/,		5];
 
 =head2 -xtick -ytick (I<5>)
 
-How many ticks at the x or y axis?
+Number of ticks at the x or y axis.
 
 =cut
 
@@ -232,12 +235,12 @@ $specs{-xformat}     	= [qw/PASSIVE xformat	    XFormat/,		'%s'];
 
 =head2 -xformat (I<'%s'>) -yformat (I<'%g'>)
 
-This if the sprintf format for dislplay
-value or key at the axis.
+This if the sprintf format for display
+of the value or key for the axis.
 example:
 
-        -xformat => '%d%%'      # This will i.e. Display '50%'
-        -yformat => '%s host'   # This will i.e. Display 'first host'
+        -xformat => '%d%%'      # This will eg. Display '50%'
+        -yformat => '%s host'   # This will eg. Display 'first host'
 
 =cut
 
@@ -246,8 +249,8 @@ $specs{-padding}     	= [qw/PASSIVE padding	    Padding/,		[15,20,20,50]];
 
 =head2 -padding (I<[15,20,20,50]>)
 
-Margin display from the widgetborder, in this direction top, right, bottom,
-left 
+Margin display from the Widget border, in this order top, right, bottom,
+left. 
 
 =cut
 
@@ -256,7 +259,7 @@ $specs{-linewidth}     	= [qw/PASSIVE linewidth    Linewidth           1/];
 
 =head2 -linewidth (I<1>)
 
-The weight from the Border at the dots, circle, lines 
+The weight of the border for the dots, circle and lines.
 
 =cut
 
@@ -266,8 +269,7 @@ $specs{-printvalue}     = [qw/PASSIVE printvalue   Printvalue/,        undef];
 
 =head2 -printvalue 
 
-This if the sprintf format for display value and a 
-switch for the last values from the datahash 
+This is the sprintf format and switch for display of the value.
 
 =cut
 
@@ -276,8 +278,7 @@ $specs{-maxmin}     	= [qw/PASSIVE maxmin       MaxMin/,            undef];
 
 =head2 -maxmin 
 
-Draw Max/Average/Min values Lines in the Bars and 
-Line charts 
+Draw max/average/min value lines in Bars and Line charts 
 
 =cut
 
@@ -295,21 +296,21 @@ $specs{-colors}     	= [qw/PASSIVE colors       Colors/,            'blue,brown,
 
 =head2 -colors (I<red, green, ...>) 
 
-A comma-separated list with the allows colors 
+A comma-separated list with the allowed colors. 
   
 
 =cut
 
 #-------------------------------------------------
-$specs{-shadow}     	= [qw/PASSIVE shadow       Shadow/,            'gray50'];
-$specs{-shadowdeep}    	= [qw/PASSIVE shadowdeep   ShadowDeep/,        undef];
+$specs{-shadow}     	= [qw/PASSIVE shadow        Shadow/,            'gray50'];
+$specs{-shadowdepth}    = [qw/PASSIVE shadowdepth   Shadowdepth/,        undef];
 
-=head2 -shadow (I<'gray50'>) -shadowdeep (I<0>) 
+=head2 -shadow (I<'gray50'>) -shadowdepth (I<0>) 
 
 You can add a shadow to all Charts, the
-switch is -shadowdeep. 
-This is also the deep in Pixel from the shadow.
--shadow is the color from the Shadow.  
+switch is -shadowdepth. 
+This is also the depth in Pixels for the shadow.
+-shadow is the color for the shadow.  
 
 =cut
 
@@ -318,8 +319,7 @@ $specs{-wire}     	= [qw/PASSIVE wire         Wire/,              'white'];
 
 =head2 -wire (I<'white'>)
 
-Switch on/off to draw a wire in background from Line 
-and bars chart.
+Switch on/off a wire grid in background from line and bars chart.
 
 =cut
 
@@ -328,8 +328,8 @@ $specs{-reference}     	= [qw/PASSIVE reference    Reference/,         undef];
 
 =head2 -reference (I<'name'>, I<'value'>) 
 
-This give a
-Referencevalue for the keys in datahash.
+This give a Reference value for the keys in datahash. I.e. the data values are displayed relative to this reference value.
+
 example:
 
         -reference      => 'Free, 1024',        # Free space at host
@@ -341,9 +341,10 @@ $specs{-look}     	= [qw/PASSIVE look         Look/,              undef];
 
 =head2 -look (I<'count'>) 
 
-A Count to follow the values in linechart, when you refresh 
-the datahash then this will display ex. 50 values from the
-keys only in linechart.
+The number of values to display in a line chart. 
+When you refresh the data hash (maybe with the methods set or variable), then this will display 
+eg. the last 50 values.
+
 example:
 
         -look   => 50,  # 50 values to display pro key
@@ -355,8 +356,7 @@ $specs{-dots}     	= [qw/PASSIVE dots         Dots/,              undef];
 
 =head2 -dots (I<'width'>) 
 
-The width and switch
-on from the Dots in linechart 
+The width and switch for the dots in line chart. 
 
 =cut
 
@@ -365,17 +365,17 @@ $specs{-barwidth}     	= [qw/PASSIVE barwidth     Barwidth/,          30];
 
 =head2 -barwidth (I<30>) 
 
-The width from Bars in Barcharts
+The width for bars in bar charts.
 
 =cut
 
 #-------------------------------------------------
 $specs{-balloon}     	= [qw/PASSIVE balloon      Balloon/,           1];
 
-=head2 -ballon (0|I<1>) 
+=head2 -balloon (0|I<1>) 
 
-Switch on/off a BallonHelp to segementes or lines. 
-The Text is use from the -printvalue option.
+Switch on/off ballon help for segements or lines. 
+The text format is used from the -printvalue option.
 
 =cut
 
@@ -384,7 +384,7 @@ $specs{-font}     	= [qw/PASSIVE font	    Font/,		'-*-Helvetica-Medium-R-Normal-
 
 =head2 -font (I<'-*-Helvetica-Medium-R-Normal--*-100-*-*-*-*-*-*'>)
 
-Draw text in font
+Draw text in this font.
 
 =cut
 
@@ -393,7 +393,7 @@ $specs{-lineheight}     = [qw/PASSIVE lineheight   LineHeight/,	15];
 
 =head2 -lineheight (I<15>)
 
-The Lineheight in pixel from text in the legend
+The line height in pixels for text in the legend.
 
 =cut
 
@@ -402,7 +402,7 @@ The Lineheight in pixel from text in the legend
 
 =head1 METHODS
 
-Here come the Methodes that can you use for this Widget.
+Here come the methods that you can use with this Widget.
 
 =cut
 
@@ -414,7 +414,7 @@ $specs{-set}     	= [qw/METHOD  set          Set/,               undef];
 
 =head2 $chart->I<set>($data);
 
-Set the datahash to display.
+Set the data hash to display.
 
 =cut
 
@@ -423,7 +423,7 @@ $specs{-variable}     	= [qw/METHOD  variable     Variable/,          undef];
 
 =head2 $chart->I<variable>($data);
 
-bind the datahash to display the data, write to $data will redraw the widget.
+Bind the data hash to display the data, write to $data will redraw the widget.
 
 =cut
 
@@ -441,7 +441,7 @@ $specs{-clear}     	= [qw/METHOD  clear        Clear/,             undef];
 
 =head2 $chart->I<redraw>();
 
-Clear the canvas
+Clear the canvas.
 
 =cut
 
@@ -454,8 +454,7 @@ Clear the canvas
         $self->Tk::bind('<Configure>', sub{ $self->redraw() } );                # Redraw
 
         # Help (CanvasBalloon)
-        $self->{balloon} = $self->Balloon
-        	unless($eerror);
+        $self->{balloon} = $self->Balloon;
 
 } # end Populate
 
@@ -494,7 +493,7 @@ sub draw_horizontal_bars {
                 my @linepoints;
                 my $c;
 		my $shadowcolor = $self->cget(-shadow);
-		my $sd = $self->cget(-shadowdeep);
+		my $sd = $self->cget(-shadowdepth);
 
                 foreach my $point (sort { $self->sorter } keys %$werte ) {
                         next if(ref $werte->{$point});
@@ -592,7 +591,7 @@ sub draw_bars {
 
 
                                 # Shadow Bar
-                                if($werte->{$point} && $self->cget(-shadowdeep) && (my $shadowcolor = $self->cget(-shadow)) && (my $sd = $self->cget(-shadowdeep))) {
+                                if($werte->{$point} && $self->cget(-shadowdepth) && (my $shadowcolor = $self->cget(-shadow)) && (my $sd = $self->cget(-shadowdepth))) {
 	                                $self->createRectangle(
                                                 ($xi+$sd), ($yi+$sd),
                                                 ($xi + $self->cget(-barwidth)+$sd), $conf->{y_null},
@@ -1254,12 +1253,12 @@ sub draw_circle {
 
         # Shadow
         $self->createOval(
-                        ($conf->{x_null} + $self->cget(-shadowdeep) ), ($conf->{ypad_top} + $self->cget(-shadowdeep)),
-                        ($width + $self->cget(-shadowdeep)), ($height + $self->cget(-shadowdeep)),
+                        ($conf->{x_null} + $self->cget(-shadowdepth) ), ($conf->{ypad_top} + $self->cget(-shadowdepth)),
+                        ($width + $self->cget(-shadowdepth)), ($height + $self->cget(-shadowdepth)),
                 -fill => $self->cget(-shadow),
                 -outline => $self->cget(-shadow),
                 -width => 0,
-                ) if($self->cget(-shadowdeep));         # Schatten
+                ) if($self->cget(-shadowdepth));         # Schatten
 
         # Segments
         my ($summe, $start, $count, $grad, $x, $y);
@@ -1543,11 +1542,15 @@ sub debug {
 
 1;
 
+=head1 EXAMPLES
+
+Please see for examples in 'demos' directory in this distribution.
+
 =head1 AUTHOR
 
 Frank Herrmann
-xpix@xpix.de
-http://www.xpix.de
+xpix@netzwert.ag
+http://www.netzwert.ag
 
 =head1 SEE ALSO
 

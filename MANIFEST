@@ -1,6 +1,8 @@
 Graph.pm
 MANIFEST			This list of files
 Makefile.PL
+README
+Tk-Graph-0.01.tar.gz
 demos/test.pl
 demos/test_linegraph.pl
 demos/topgfx.pl
