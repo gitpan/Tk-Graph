@@ -6,34 +6,22 @@ use strict;
 use Carp;
 use Tk;
 use Tk::Graph;
-use Tk::BrowseEntry;
-use Tk::NumEntry;
 
-use DBI;
-use Data::Dumper;
+my %data;
+my $typ = 'Bars';
+my $field = 'pctcpu';
+
 
 # Dump all the information
 # in the current process table
 use Proc::ProcessTable;
-my $t = Proc::ProcessTable->new;
+my $t 	= Proc::ProcessTable->new;
+my $mw 	= MainWindow->new;
 
-my $mw = MainWindow->new;
-
-my %data;
-my $typ = 'HBARS';
-my $field = 'pctcpu';
-
-my $fc = $mw->Frame(
-	-borderwidth	=> 1,
-	-width      	=> 500,
-	-height     	=> 200 
-);
-
-
-my $cc = $fc->Graph(
+my $cc = $mw->Graph(
 	-type		=> $typ,
 	-borderwidth	=> 2,
-	-title		=> 'Top Processes',
+	-title		=> $field,
 	-titlecolor	=> 'Brown',
 	-yformat	=> '%2.2f',
 
@@ -51,56 +39,11 @@ my $cc = $fc->Graph(
 	-legend		=> 1,
 	)->pack(-expand => 1, -fill => 'both');
 
-
-# Button Frame
-my $fra = $mw->Frame();
-
-# Typ
-my $opt = $fra->BrowseEntry(
-	-options  	=> ['BARS', 'HBARS', 'CIRCLE', 'LINE'],
-	-variable 	=> \$typ,
-	-command  	=> sub { 
-			$cc->configure(-type => uc($typ));
-			$cc->redraw();
-		},
-	)->pack(-side => 'left');
-
-# Field
-my @fields = $t->fields;
-@fields = sort grep(! /^$/, @fields);
-
-my $fie = $fra->BrowseEntry(
-	-options  	=> \@fields,
-	-variable 	=> \$field,
-	-command  	=> sub { 
-			$cc->configure(-ylabel => $field);
-			$cc->clear();
-		},
-	)->pack(-side => 'left');
-
-my $threed = 0;
-my $thr = $fra->NumEntry(
-	-textvariable 	=> \$threed,
-	-minvalue	=> 0,
-	-maxvalue	=> 50,
-	)->pack(-side => 'left');
-
-my $gbu = $fra->Button(
-	-text 		=> '3D', 
-	-command 	=> sub { 
-				$cc->configure(-threed => $threed);
-				$cc->redraw;
-			},
-	)->pack(-side => 'left');
-
-# Packs
-$fc ->pack(-expand => 1, -fill => 'both', -anchor => 'nw', -side => 'top');
-$fra->pack(-expand => 1, -fill => 'both', -anchor => 'nw', -side => 'top');
-
-
+# Create Menu
+&menu($mw, $t, $cc);
 
 # Daten holen und dem Widget zuschieben
-refresh(\%data, $cc);
+refresh(\%data, $cc, $field);
 
 # ... und das alle X Sekunden
 NOCHMA:
@@ -113,6 +56,82 @@ MainLoop;
 exit;
 
 # Subs ----------------------------------
+sub set3d {
+	my $val = shift || 0;
+	$cc->configure(-threed => $val);
+}
+
+sub setdisplay {
+	$typ = shift;
+	$cc->configure(-type => $typ);
+}
+
+sub setprocess {
+	$field = shift || $field;
+	$cc->configure(-title => $field);
+	$cc->clear;
+}
+
+sub menu {
+	my $top = shift || die;
+	my $t 	= shift || die;
+	my $cc 	= shift || die;
+
+	# Fields
+	my @fields = $t->fields;
+	@fields = sort grep(! /^$/, @fields);
+
+	my @menu_process;
+	foreach my $fd (@fields) {
+		push(@menu_process, [Radiobutton => $fd, -variable => \$field, -command => [\&setprocess, $fd]]);
+	}
+
+	my $menuitems = 
+	    [
+	
+	     [Cascade => "File", -menuitems =>
+	      [
+	       [Button => "Quit", -command => \&quitapp],
+	      ]
+	     ],
+	
+	     [Cascade => "View", -menuitems =>
+	      [
+	       [Radiobutton => "~Bars",  -variable => \$typ, -command => [\&setdisplay, 'Bars'] ],
+	       [Radiobutton => "~HBars", -variable => \$typ, -command => [\&setdisplay, 'Hbars']],
+	       [Radiobutton => "~Circle", -variable => \$typ, -command => [\&setdisplay, 'Circle']],
+	       [Radiobutton => "~Line", -variable => \$typ, -command => [\&setdisplay, 'Line']],
+	       [Cascade => "Type", -menuitems =>
+		[
+		  @menu_process,
+		]	
+	       ],
+	     [Cascade => "~3d", -menuitems =>
+		[
+		 [Button => "Off", -command => [\&set3d, 0] ],
+		 [Button => "3", -command => [\&set3d, 3] ],
+		 [Button => "5", -command => [\&set3d, 5] ],
+		 [Button => "7", -command => [\&set3d, 7] ],
+		 [Button => "10", -command => [\&set3d, 10] ],
+		]
+	       ], 
+
+	      ]
+	     ],
+	    ];
+	
+	    if ($Tk::VERSION >= 800) {
+		my $menubar = $top->Menu(-menuitems => $menuitems);
+		$top->configure(-menu => $menubar);
+	    } else {
+		$top->Menubutton(-text => "Pseudo menubar",
+				 -menuitems => $menuitems)->pack;
+	    }
+}
+
+sub quitapp {
+	exit;
+}
 
 sub refresh {
 	my $data = shift 	|| warn 'Keine Daten!';
@@ -127,7 +146,7 @@ sub refresh {
 				if(defined $data->{$p->{fname}});
 		}
 	}   
-	$widget->set(\%data);
+	$widget->set($data);
 }
 
          

@@ -20,8 +20,9 @@ my $data = {
 };
 
 my $ca = $mw->Graph(
-	-type	=> 'LINE',
+	-type	=> 'Line',
 	-max 	=> 10,
+#	-look	=> 10,
 	)->pack(-expand => 1, 
 		-fill => 'both');
 
@@ -29,7 +30,7 @@ $ca->register($to_register);
 
 $ca->variable($data);
 
-$mw->after(2000, sub { shuffle($data, $ca) } );
+# $mw->after(2000, sub { shuffle($data, $ca) } );
 
 MainLoop;
 
