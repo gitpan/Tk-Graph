@@ -1,0 +1,30 @@
+Revision history for Perl extension Tk::Graph.
+
+0.01 Tue Sep  1 01:12:30 2002
+	- first version for cpan
+
+0.02 Tue Sep 21 01:21:54 EST 2002
+	- corrected version for cpan
+
+0.03 Mon Nov 18 17:19:06 EST 2002
+	* Add Function 3d in Bars and Hbars
+	* new Options -threed and -light
+	* add the 3d function to axis and wire
+	* new method register
+	* method register return the actual cache, when call without value.
+
+	! switch off shadow when 3d = on
+	! set look on 10 when use register and look is off
+	! package to up
+	! Fix error y-axis
+	! Fix in coordinates for axis and wire
+	! Colors is changed from Lightoption ... fix
+	! Empty Field for Values in Bars and HBARS
+	! Fix in ballon routine
+	! Fix when values in hash == undef
+
+0.04 Mon Nov 18 17:19:06 EST 2002
+	* add this file to distribution	
+
+	! new version number for cpan
+	
