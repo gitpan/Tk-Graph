@@ -1,8 +1,9 @@
+package Tk::Graph;
 #------------------------------------------------
 # automagically updated versioning variables -- CVS modifies these!
 #------------------------------------------------
-our $Revision           = '$Revision: 1.18 $';
-our $CheckinDate        = '$Date: 2002/09/20 03:11:45 $';
+our $Revision           = '$Revision: 1.36 $';
+our $CheckinDate        = '$Date: 2002/11/15 16:06:36 $';
 our $CheckinUser        = '$Author: xpix $';
 # we need to clean these up right here
 $Revision               =~ s/^\$\S+:\s*(.*?)\s*\$$/$1/sx;
@@ -19,7 +20,7 @@ Tk::Graph - A graphical Chartmaker at Canvas (Realtime).
 =head1 SYNOPSIS
 
    use Tk;
-   use Tk::Graph; 
+   use Tk::Graph;                                       
    
    $mw = MainWindow->new;
    
@@ -62,7 +63,6 @@ add a logo or write some text in your created Chart.
 #
 # A graphical Chartmaker at Canvas (Realtime)
 # -------------------------------------------------------
-package Tk::Graph;
 
 use Carp;
 use base qw/Tk::Derived Tk::Canvas/;
@@ -118,7 +118,7 @@ I<Circle> - PieChart
 =cut
 
 #-------------------------------------------------
-$specs{-foreground} 	= [qw/PASSIVE foreground   Foreground/,	'black'];
+$specs{-foreground} 	= [qw/PASSIVE foreground   Foreground/,		'black'];
 
 =head2 -foreground (I<black>)
 
@@ -145,6 +145,26 @@ The headroom in percent. This is a clean area at the top of the widget.
 When a value is in this area, the graph is redrawn to preserve this headroom.  
 
 =cut
+
+#-------------------------------------------------
+$specs{-threed}     	= [qw/PASSIVE threed     Threed/,              undef];
+
+=head2 -threed  (I<undef>)
+
+This switch a three dimensional Display on. The Value is deep in Pixel.
+
+=cut
+
+#-------------------------------------------------
+$specs{-light}     	= [qw/PASSIVE light      Light/,              [10,5,0]];
+
+=head2 -light  (I<[10,5,0]>)
+
+How many percent is the color in top, side and front (in this direction) 
+lighter or darker in 3d?
+
+=cut
+
 
 #-------------------------------------------------
 $specs{-max}     	= [qw/PASSIVE max          Max/,               undef];
@@ -428,6 +448,28 @@ Bind the data hash to display the data, write to $data will redraw the widget.
 =cut
 
 #-------------------------------------------------
+$specs{-register}     	= [qw/METHOD  register	   Register/,               undef];
+
+=head2 $chart->I<register>($to_register);
+
+Set the data hash to register. When you have data for Linegraph 
+then can you this register with method register. This data 
+is the registered for the following linegraph, when you set 
+new datas with 'set' or 'variable' then if this startet at 
+the end from this data. if you call register without data the 
+you get the actual datacache.
+
+  my $to_register = {
+	'one'  => [0,5,4,8,6,8],
+	'two' => [2,5,9,4,6,2],
+	'three' => [0,5,6,8,6,8],
+  };
+  $ca->register($to_register);
+
+=cut
+
+
+#-------------------------------------------------
 $specs{-redraw}     	= [qw/METHOD  redraw       Redraw/,            undef];
 
 =head2 $chart->I<redraw>();
@@ -439,7 +481,7 @@ Redraw chart
 #-------------------------------------------------
 $specs{-clear}     	= [qw/METHOD  clear        Clear/,             undef];
 
-=head2 $chart->I<redraw>();
+=head2 $chart->I<clear>();
 
 Clear the canvas.
 
@@ -494,6 +536,7 @@ sub draw_horizontal_bars {
                 my $c;
 		my $shadowcolor = $self->cget(-shadow);
 		my $sd = $self->cget(-shadowdepth);
+		my $td = $self->cget(-threed);
 
                 foreach my $point (sort { $self->sorter } keys %$werte ) {
                         next if(ref $werte->{$point});
@@ -506,7 +549,7 @@ sub draw_horizontal_bars {
 
                         # Values
                         $self->createText($xi+12, $yi + ($self->cget(-barwidth) / 2),
-                                -text => sprintf($self->cget(-printvalue), $werte->{$point}),
+				-text => sprintf($self->cget(-printvalue), '', $werte->{$point}),
                                 -anchor => 'w',
                                 -font => $conf->{font},
                                 -fill => $self->cget(-titlecolor)
@@ -514,7 +557,7 @@ sub draw_horizontal_bars {
 
 
                         # Shadow Bar
-                        if($sd && $werte->{$point}) {
+                        if($sd && $werte->{$point} && ! $td) {
                                 my $bar = $self->createRectangle(
                                                 ($xi+$sd), ($yi+$sd),
                                                 ($conf->{x_null}), ($yi + $self->cget(-barwidth) + $sd),
@@ -523,10 +566,32 @@ sub draw_horizontal_bars {
                                         );
                         }
 
+                        # ThreeD Bar
+                        if($werte->{$point} && $td ) {
+				# Oben
+                                $self->createPolygon(
+					$conf->{x_null}, $yi,
+                                        ($conf->{x_null} + $td), ($yi - $td),
+                                        ($xi + $td), ($yi - $td),
+                                        ($xi), ($yi ),
+					-fill => $self->color_change( $self->{colors}->{$point}, $conf->{light_top}),
+					-outline => 'black',
+                                );
+				# Side
+                                $self->createPolygon(
+                                        ($xi  ), ($yi + $self->cget(-barwidth)) ,
+                                        ($xi + $td ), ($yi + $self->cget(-barwidth) - $td) ,
+                                        ($xi + $td), ($yi - $td),
+                                        ($xi ), ($yi ),
+					-fill => $self->color_change( $self->{colors}->{$point}, $conf->{light_side}),
+					-outline => 'black',
+                                );
+                        }
+
                         # Normaler Bar
                         $self->{elements}->{$point} = $self->createRectangle($xi, $yi,
                                 $conf->{x_null}, ($yi + $self->cget(-barwidth)),
-                                -fill => $self->{colors}->{$point},
+				-fill => ( $self->cget(-threed) ? $self->color_change( $self->{colors}->{$point}, $conf->{light_front}) : $self->{colors}->{$point} ),
                                 -width => 1,
                                         );
                 }
@@ -548,6 +613,7 @@ sub draw_bars {
 	# Check
 	return warn("Your data is incorrect, i need a Hashreference!")
 		unless(ref $data eq 'HASH');
+
 
         my $werte = $self->reference($data);
         my $conf = $self->ReadConfig($werte) || return;
@@ -575,15 +641,41 @@ sub draw_bars {
                 foreach my $point (sort { $self->sorter } keys %$werte ) {
                         next if(ref $werte->{$point});
                         next unless($conf->{max_value});
+			$werte->{$point} = 0 
+				unless($werte->{$point}); 
                         $i++;
                         $xi = ($conf->{x_null} + $self->cget(-barwidth)) + ((int(($conf->{width}-$conf->{x_null})/$conf->{count}) + 0.99) * $i);
                         $yi = ($conf->{y_null}) - int( ( ( $conf->{y_null} - $conf->{ypad_top} ) / $conf->{max_value} ) * $werte->{$point} );
                         $xi = $xi - ($self->cget(-barwidth) / 2);
 
                         unless(ref $werte->{$point}) {
+
+                                # ThreeD Bar
+                                if($werte->{$point} && ( my $td = $self->cget(-threed) ) ) {
+					# Oben
+	                                $self->createPolygon(
+						$xi, $yi,
+                                                ($xi + $td), ($yi - $td),
+                                                ($xi + $self->cget(-barwidth)+$td), ($yi - $td),
+                                                ($xi + $self->cget(-barwidth) ), ($yi ),
+						-fill => $self->color_change( $self->{colors}->{$point}, $conf->{light_top}),
+						-outline => 'black',
+	                                );
+					# Side
+	                                $self->createPolygon(
+                                                ($xi + $self->cget(-barwidth) ), $conf->{y_null} ,
+                                                ($xi + $self->cget(-barwidth)+$td ), ($conf->{y_null} - $td) ,
+                                                ($xi + $self->cget(-barwidth)+$td), ($yi - $td),
+                                                ($xi + $self->cget(-barwidth) ), ($yi ),
+						-fill => $self->color_change( $self->{colors}->{$point}, $conf->{light_side}),
+						-outline => 'black',
+	                                );
+                                }
+
+
                                 # Values
                                 $self->createText($xi+12, $yi-12,
-                                        -text => sprintf($self->cget(-printvalue), $werte->{$point}),
+                                        -text => sprintf($self->cget(-printvalue), '', $werte->{$point}),
                                         -anchor => 'n',
                                         -font => $conf->{font},
                                         -fill => $self->cget(-titlecolor)
@@ -591,7 +683,7 @@ sub draw_bars {
 
 
                                 # Shadow Bar
-                                if($werte->{$point} && $self->cget(-shadowdepth) && (my $shadowcolor = $self->cget(-shadow)) && (my $sd = $self->cget(-shadowdepth))) {
+                                if($werte->{$point} && $self->cget(-shadowdepth) && (my $shadowcolor = $self->cget(-shadow)) && (my $sd = $self->cget(-shadowdepth)) && ! $self->cget(-threed)) {
 	                                $self->createRectangle(
                                                 ($xi+$sd), ($yi+$sd),
                                                 ($xi + $self->cget(-barwidth)+$sd), $conf->{y_null},
@@ -600,11 +692,12 @@ sub draw_bars {
 	                                 );
                                 }
 
+
                                 # Normaler Bar
                                 $self->{elements}->{$point} = $self->createRectangle(
                                 		$xi, $yi,
 	                                        ($xi + $self->cget(-barwidth)), $conf->{y_null},
-	                                        -fill => $self->{colors}->{$point},
+	                                        -fill => ( $self->cget(-threed) ? $self->color_change( $self->{colors}->{$point}, $conf->{light_front}) : $self->{colors}->{$point} ),
 	                                        -width => 1,
                                           );
                         }
@@ -617,6 +710,27 @@ sub draw_bars {
         $self->balloon($self->{elements}, $werte);
 }
 
+
+#-------------------------------------------------
+sub color_change {
+#-------------------------------------------------
+        my $self = shift || return error("No Objekt!");
+	return undef unless(ref $self eq __PACKAGE__);
+        my $col = shift || return error("No Color!");
+        my $fac = shift || 10;
+
+	my @colors = $self->rgb($col);
+	my $wert = '#';
+	foreach (@colors) {
+		my $dec = $_;
+		my $w = ($dec + ($dec * $fac / 100));
+		$w = 0xFFFF if($w > 0xFFFF);
+		$w = 0 if($w < 0);
+		$wert .= sprintf('%X', $w);
+	} 
+
+	return $wert;	
+}
 
 #-------------------------------------------------
 sub draw_line {
@@ -665,7 +779,7 @@ sub draw_line {
 
                                 # Values
                                 $self->createText($xi+12, $yi-12,
-                                        -text => sprintf($self->cget(-printvalue), $name, $point),
+                                        -text => sprintf($self->cget(-printvalue), '', $werte->{$point}),
                                         -anchor => 'n',
                                         -font => $conf->{font},
                                         -fill => $self->cget(-titlecolor)
@@ -918,6 +1032,12 @@ sub ReadConfig {
 	# Headroom
 	$conf->{headroom} = ($self->cget(-headroom) / 100) + 1;  
 
+	# Light in 3D
+	my $light = $self->cget(-light);
+	$conf->{light_top}	= $light->[0]; 
+	$conf->{light_side}	= $light->[1]; 
+	$conf->{light_front}	= $light->[2]; 
+
         # Windowsize
         ($conf->{width}, $conf->{height}) = $self->window_size();
 	return unless($conf->{width} or $conf->{height});
@@ -994,7 +1114,7 @@ sub axis {
         # X-Ticks
         if($conf->{type} eq 'HBARS' || $conf->{type} eq 'LINE') {
                 for(my $i = 0; $i <= $self->cget(-xtick); $i++) {
-                        my $x = $conf->{x_null} + (int(($conf->{width} - $conf->{x_null})/$self->cget(-xtick) + 0.99) * $i);
+                        my $x = $conf->{x_null} + (sprintf('%d', ($conf->{width} - $conf->{x_null})/$self->cget(-xtick)) * $i);
 
                         $self->createLine(
                                 $x, ( $conf->{height} - ($conf->{ypad} + 5) ),
@@ -1068,7 +1188,7 @@ sub axis {
                 for (my $i = 0; $i <= $self->cget(-ytick); $i++) {
                         next unless($i);
 
-                        my $y = ($conf->{y_null}) - (int(($conf->{y_null} - $conf->{ypad_top})/$self->cget(-ytick) + 0.99) * $i);
+                        my $y = ($conf->{y_null}) - (sprintf('%d', ( $conf->{y_null} - $conf->{ypad_top} )/$self->cget(-ytick)) * $i);
                         $self->createLine(
                                 $conf->{x_null},   $y,
                                 $conf->{x_null}-5, $y,
@@ -1077,8 +1197,7 @@ sub axis {
 			);
 
                         $self->createText($conf->{x_null}-8, $y,
-                                -text => sprintf($self->cget(-yformat), (($conf->{max_value}/$self->cget(-ytick)) * $i)),
-                                -anchor => 'e',
+                                -text => sprintf($self->cget(-yformat), (($conf->{max_value}/$self->cget(-ytick)) * $i)),                                -anchor => 'e',
                                 -font => $conf->{font},
                 		-fill => $conf->{fg},
 			);
@@ -1145,10 +1264,10 @@ sub maxmin {
                 $MAX->{$conf->{title}}->{max} = 0       unless $MAX->{$conf->{title}}->{max};
 
                 foreach my $name (keys %{$werte}) {
-                        next if ref $werte->{$name};
-                        my $value = $werte->{$name};
+                        next if ref $werte->{$name}; 
+                        my $value = $werte->{$name} || 0;
                         $MAX->{$conf->{title}}->{max} = $value if( $MAX->{$conf->{title}}->{max} <= $value );
-                        $MAX->{$conf->{title}}->{min} = $value if( $MAX->{$conf->{title}}->{min} >= $value );
+                        $MAX->{$conf->{title}}->{min} = $value if( $MAX->{$conf->{title}}->{min} >= $value );                        $MAX->{$conf->{title}}->{avg} =
                         $MAX->{$conf->{title}}->{avg} =
                                 ( $MAX->{$conf->{title}}->{max} - $MAX->{$conf->{title}}->{min} ) / 2 +
                                         $MAX->{$conf->{title}}->{min};
@@ -1162,16 +1281,23 @@ sub maxmin {
 
 	# Rons Idea             
 	# Y
-	my $val = sprintf($self->cget(-yformat), $conf->{max_value});	
-	if($val == int($val) && $self->cget(-ytick) > $val) {
+ 	my $val = sprintf($self->cget(-yformat), $conf->{max_value});	
+ 	if($val == int($val) && $self->cget(-ytick) > $val) {
+		$self->{old_ytick} = $self->cget(-ytick);
 		$self->configure(-ytick => int($val) + ($conf->{max_value} > $val ? 1 : 0));
         	$conf->{max_value} =  int($conf->{max_value} + 0.99999); 
+	} elsif( $self->{old_ytick} && $self->cget(-ytick) < $val ) {
+		$self->configure(-ytick => $self->{old_ytick});
 	}
+
 	# X
-	$val = sprintf($self->cget(-xformat), $conf->{max_value});	
-	if($val == int($val) && $self->cget(-xtick) > $val) {
+ 	$val = sprintf($self->cget(-xformat), $conf->{max_value});	
+ 	if($val == int($val) && $self->cget(-xtick) > $val) {
+		$self->{old_xtick} = $self->cget(-ytick);
 		$self->configure(-xtick => int($val) + ($conf->{max_value} > $val ? 1 : 0));
         	$conf->{max_value} =  int($conf->{max_value} + 0.99999); 
+	} elsif( $self->{old_xtick} && $self->cget(-xtick) < $val ) {
+		$self->configure(-xtick => $self->{old_xtick});
 	}
 	# --
 
@@ -1400,20 +1526,28 @@ sub wire {
         my $xtick = ( $conf->{typ} eq 'HASH' && $conf->{type} ne 'HBARS' ? $conf->{count} : $self->cget(-xtick) );
 	   $xtick = 1 unless $xtick;
 
+	my $td = $self->cget(-threed) || 0;
+
         if($conf->{type} eq 'HBARS' || $conf->{type} eq 'LINE') {
 	        for(my $i = 0; $i <= $xtick; $i++) {
-	                my $x = $conf->{x_null} + (int(($conf->{width} - $conf->{x_null})/$self->cget(-xtick) + 0.99) * $i);
+	                my $x = $conf->{x_null} + (sprintf('%d', ($conf->{width} - $conf->{x_null})/$self->cget(-xtick)) * $i);
 	
-	                $self->createLine( $x, $conf->{y_null}, $x, $conf->{ypad_top},
+	                $self->createLine( 
+	                    $x, $conf->{y_null}, ($x + $td), 
+	                    ($conf->{y_null} - $td), ($x + $td), 
+	                    ($conf->{ypad_top} - $td),
 	                    -width => 1,
 	                    -fill  => $self->cget(-wire)
 	                  );
 	        }
 	} else {
-	        for(my $i = 0; $i <= $xtick; $i++) {
+	        for(my $i = 0; $i < $xtick; $i++) {
                         my $x = ($conf->{x_null} + $self->cget(-barwidth)) + (int(( $conf->{width} - $conf->{x_null} ) / $conf->{count} + 0.99) * $i);
 	
-	                $self->createLine( $x, $conf->{y_null}, $x, $conf->{ypad_top},
+	                $self->createLine( 
+	                    $x, $conf->{y_null}, ($x + $td), 
+	                    ($conf->{y_null} - $td), ($x + $td), 
+	                    ($conf->{ypad_top} - $td),
 	                    -width => 1,
 	                    -fill  => $self->cget(-wire)
 	                  );
@@ -1425,9 +1559,9 @@ sub wire {
         my $ytick = ($conf->{type} eq 'HBARS' ? $conf->{count} : $self->cget(-ytick));
    	   $ytick = 1 unless $ytick;
 
-        for (my $i = 0; $i <= $ytick; $i++) {
-                my $y = ($conf->{y_null}) - (int( ( $conf->{y_null} - $conf->{ypad_top} )/$ytick + 0.99) * $i);
-                $self->createLine( $conf->{x_null}, $y, $conf->{width}, $y,
+        for (my $i = 0.5; $i <= $ytick; $i++) {
+                my $y = ($conf->{y_null}) - (sprintf('%d', ( $conf->{y_null} - $conf->{ypad_top} )/$ytick) * $i);
+                $self->createLine( $conf->{x_null}, $y, ($conf->{x_null} + $td), ($y - $td), ($conf->{width} + $td), ($y - $td),
                     -width => 1,
                     -fill  => $self->cget(-wire),
                   );
@@ -1460,6 +1594,21 @@ sub config {
                 }
         }
 }
+
+#-------------------------------------------------
+sub register {
+#-------------------------------------------------
+        my $self = shift || return error("No Objekt!");
+	return undef unless(ref $self eq __PACKAGE__);
+        my $data = shift || return $self->{look};
+
+        foreach my $name (keys %$data) {
+                $self->{look}->{$name} = $data->{$name};
+        }
+
+        $self->configure(-look => 10) unless($self->cget(-look));
+}
+
 
 #-------------------------------------------------
 sub look {
@@ -1509,8 +1658,10 @@ sub balloon{
 	my $bh;
 	
 	foreach my $name (keys %$werte) {
-		$bh->{$elements->{$name}} = sprintf($self->cget(-printvalue) || ($name && $werte ? '%s: %g' : '%g'), $name, $werte->{$name})
-			if($werte->{$name});
+		$bh->{$elements->{$name}} = 
+		sprintf(
+			$self->cget(-printvalue) || ($name && $werte->{$name} ? '%s: %s' : '%s'), $name, $werte->{$name})
+				if($werte->{$name});
 	}
 
         $self->{balloon}->attach(
@@ -1519,6 +1670,8 @@ sub balloon{
 		-msg => $bh,
         ) if(defined $self->{balloon});
 }
+
+
 
 #-------------------------------------------------
 sub error {
@@ -1561,5 +1714,3 @@ Tk::Canvas,
 =cut
 
 __END__
-
-

@@ -7,27 +7,19 @@ use Tk::Graph;
 
 my $mw = MainWindow->new;
 
-my $to_register = {
-	'one'  => [0,5,4,8,6,8],
-	'two' => [2,5,9,4,6,2],
-	'three' => [0,5,6,8,6,8],
-};
-
 my $data = {
-	'one'  => 3,
-	'two'  => 3,
-	'three'  => 3,
+	'one'  => 5,
+	'two' => 10,
+	'three' => 3,
 };
 
 my $ca = $mw->Graph(
-	-type	=> 'LINE',
-	-max 	=> 10,
+	-type		=> 'BARS',
+	-printvalue 	=> '%s %d',
 	)->pack(-expand => 1, 
 		-fill => 'both');
 
-$ca->register($to_register);
-
-$ca->variable($data);
+$ca->set($data);	# Auf Daten anzeigen
 
 $mw->after(2000, sub { shuffle($data, $ca) } );
 
@@ -38,7 +30,7 @@ sub shuffle {
 	my $ca = shift || die;
 
 	foreach my $n (keys %$data) {
-		$data->{$n} = int( rand(10) );		
+		$data->{$n} = int( rand(100) );		
 	}
 	$mw->after(1000, sub { shuffle($data, $ca) } );
 }

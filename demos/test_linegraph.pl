@@ -2,9 +2,12 @@
 
 use strict;
 use English;
-
 use Tk;
+
+use lib '../.';
+
 use Tk::Graph;
+
 
 my $Main = MainWindow->new(-title => "Test", -background => "white" );
 my $pollsec = 3;
@@ -20,6 +23,7 @@ sub linegraph {
 		-legend         => 0,
 		-headroom       => 0,
 		-foreground     => "black",
+		-debug          => 0,
 		-borderwidth    => 2,
 		-titlecolor     => '#435d8d',
 		-yformat        => '%g',
@@ -28,8 +32,10 @@ sub linegraph {
                 -xlabel         => "Requests",
 		-barwidth       => 15,
 		-padding        => [50,20,-30,50],      # Padding [top, right, buttom, left]
-		-printvalue     => '%s: %g',           # Name: Wert
+		-printvalue     => '%s',           # Name: Wert
 		-linewidth      => 2,
+		-shadow         => '#435d8d',
+		-shadowdepth     => 3,
 		-dots           => 1,
 		-look           => 20, 
 		-wire           => "#d2e8e4",
@@ -67,6 +73,8 @@ sub update_system_memory {
                 -title  => $title,
                 -config => { Used => { -color => ( $percent>=50 ? (  $percent>=90 ? "#ff3333" : "#ffb200" ) : "#2db82a" ) } },
         );
+
+        printf "used=%s\n", $used;
 
         $wid->set({
                 Used    => $used,
